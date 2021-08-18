@@ -14,17 +14,14 @@ YDBWS ;YottaDB Web Server; 05-07-2021
 	;
 	;
 ROUTES
-	S YDBWS(":WS","ROUTES","POST","ydbwebsocketsapi","API^YDBWSAPI")=""
-	S YDBWS(":WS","ROUTES","OPTIONS","ydbwebsocketsapi","API^YDBWSAPI")=""
-	S YDBWS(":WS","ROUTES","GET","YDBWebSockets","SERVESTATIC^YDBWSAPI")=""
-	S YDBWS(":WS","ROUTES","GET","videos","GETVIDEOS^YDBWSAPI")=""
-	S YDBWS(":WS","ROUTES","GET","images","GETIMGS^YDBWSAPI")=""
+	S YDBWS(":WS","ROUTES","POST","ws","WS^YDBWSAPI")=""
+	S YDBWS(":WS","ROUTES","GET","ws","WS^YDBWSAPI")=""
 	;
 	Q	
 	;
 Start(PORT) ;
 	K (PORT)
-	I '$G(PORT) S PORT=8090
+	I '$G(PORT) S PORT=8077
 	S NOGLB=1
 	I 1 J JOB(PORT) H 1 I '$T W !,"YDBWebSockets Web Server could not be started!" Q
 	S JOB=$ZJOB
@@ -133,6 +130,7 @@ WAIT
 	S HTTPREQ("body")="%YDBWSBODY" K @HTTPREQ("body")
 	I $E($P(TCPX," ",3),1,4)'="HTTP" G NEXT
 	F  S TCPX=$$RDCRLF() Q:'$L(TCPX)  D ADDHEAD(TCPX)
+	I $G(HTTPREQ("header","connection"))="Upgrade",$G(HTTPREQ("header","upgrade"))="websocket" D WSRESPONSE G NEXT
 	I $G(HTTPREQ("header","expect"))="100-continue" D
 	. W "HTTP/1.1 100 Continue",$C(13,10,13,10),!
 	U %WTCP:(nodelim)
@@ -979,3 +977,10 @@ GetMimeType(EXT)
 	I $D(YDBWS(":WS","MIME",EXT)) Q YDBWS(":WS","MIME",EXT)
 	E  Q "application/octet-stream"
 	;
+WSRESPONSE
+	W "HTTP/1.1 101 Switching Protocols",$C(13,10)
+	W "Upgrade: websocket",$C(13,10)
+	W "Connection: Upgrade",$C(13,10)
+	W "Sec-WebSocket-Accept: s3pPLMBiTxaQ9kYGzzhZRbK+xOo=",$C(13,10)
+	W $C(13,10)
+	Q
